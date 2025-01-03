@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Challan Form No. 32-A</title>
+    <style>
+        body {
+            font-family: "Times New Roman", sans-serif;
+            font-size: 14px;
+        }
+
+        .form-container {
+            width: 98%;
+            border: 2px solid black;
+            margin-bottom: 5px;
+            padding: 5px;
+        }
+
+
+        .form-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .form-table th,
+        .form-table td {
+            border: 1px solid black;
+            padding: 5px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .divider {
+            border-top: 2px dashed black;
+            margin: 10px 0;
+        }
+
+        .qr-code-container {
+            width: 100px;
+            height: 100px;
+            display: flex;
+            justify-content: right;
+            text-align: center;
+            align-items: end;
+            vertical-align: top;
+        }
+
+        /* Ensure the QR code image fills the container */
+        .qr-code-container img {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+
+<body>
+<!-- ORIGINAL FORM -->
+<div class="form-container">
+    <table style="width: 100%; border: none;">
+        <tr>
+            <!-- Column 1 -->
+            <td style="width: 15%; text-align: left;  padding: 1px;">
+                <div style=" border: 1px solid black; padding: 10px; display: inline-block;">
+                    Bank Copy
+                </div>
+                <div style="margin-top: 5px;">Chalan of cash paid into the</div>
+            </td>
+            <td style="width: 15%; text-align: center; vertical-align: middle;">
+                <div class="qr-code-container">
+                    <img src="{{ qr_code }}" alt="QR Code">
+                </div>
+            </td>
+            <!-- Column 2 -->
+            <td style="width: 45%; text-align: center;vertical-align: top; ">
+                <span style=" font-weight: bold; font-size: 25px; border: 1px solid white; background-color: #0e0d0d; color: white; padding: 5px; display: inline-block;">
+                    Challan Form No. 32-A
+                </span>
+                <p style="margin-top: 5px;font-size: large; font-weight: normal">Challan No.: <u>{{ license_code }}</u></p>
+            </td>
+
+
+            <!-- Column 3 -->
+            <td style="width: 25%; text-align: right; padding: 1px;">
+                <div style="border: 1px solid black; display: inline-block; padding: 5px;">
+                    Treasury/Sub-Treasury<br>
+                    National Bank of Pakistan<br>
+                    State Bank of Pakistan
+                </div>
+
+            </td>
+
+        </tr>
+    </table>
+
+
+    <table class="form-table">
+        <tr>
+            <th style="text-align: center" colspan="3">To be filled in by the remitter</th>
+            <th colspan="3" style="text-align: center">To be filled in by the Departmental Officer or the Treasury</th>
+        </tr>
+        <tr>
+            <td>By whom tendered, Name of the candidate</td>
+            <td>Name (or designation) and address of the person<br> on whose behalf money is paid</td>
+            <td>Full particulars <br>of the remittances and<br> the authority (if any)</td>
+            <td>Amount Rs.</td>
+            <td>Head of Account</td>
+            <td>Order to the Bank</td>
+        </tr>
+        <tr>
+            <td>{{ applicant_name }}</td>
+            <td>{{ business_name }}</td>
+            <td>Plastic License Fee paid to<br> Environmental Protection Agency, Punjab<br>
+                {#                <br> NBP Charges</td>#}
+                {#            <td>{{ amount }}/-<br><br><br> {{ nbp_charges }}</td>#}
+                <td>{{ amount }}/-<br></td>
+            <td>C03855</td>
+            <td>Date :____________________<br>
+                Correct, Received and grant Receipt<br>
+                Signature and full designation of full
+                Officer<br> ordering the money to be paid<br>
+            </td>
+
+        </tr>
+        <tr>
+            <td colspan="4" style="padding: 2px;">
+                <div style="display: table; width: 100%; margin-bottom: 2px;">
+                    <div style="display: table-cell; text-align: left;">
+                        <strong>Total:</strong>
+                    </div>
+                    <div style="display: table-cell; text-align: right;">
+                        <b>{{ amount_total }} /-</b>
+                    </div>
+                </div>
+                <div style="margin-bottom: 2px;">
+                    <strong>(in words) Rupees:</strong> {{ amount_words }}
+                </div>
+                <div>
+                    <strong>Signature:</strong> ______________________________________
+                </div>
+            </td>
+
+            <td colspan="2">
+                To be used only in the
+                case of
+                remittances to
+                Bank through an officer
+                of the Government
+            </td>
+        </tr>
+    </table>
+    <span style="text-align: center">
+        Received Payment (in words): <u>{{ amount_words }}</u>
+    </span>
+    <table style="width: 100%; margin-top: 10px; text-align: center; border-collapse: collapse;">
+        <tr>
+            <td style="width: 25%; text-align: center;">Treasurer</td>
+            <td style="width: 25%; text-align: center;">Accountant</td>
+            <td style="width: 25%; text-align: center;">Date</td>
+            <td style="width: 25%; text-align: center;">Treasury Officer<br>Agent</td>
+        </tr>
+    </table>
+
+
+</div>
+<div class="divider"></div>
+<!-- DUPLICATE FORM -->
+<div class="form-container">
+    <table style="width: 100%; border: none;">
+        <tr>
+            <!-- Column 1 -->
+            <td style="width: 15%; text-align: left;  padding: 1px;">
+                <div style=" border: 1px solid black; padding: 10px; display: inline-block;">
+                    Treasury Copy
+                </div>
+                <div style="margin-top: 5px;">Chalan of cash paid into the</div>
+            </td>
+            <td style="width: 15%; text-align: center; vertical-align: middle;">
+                <div class="qr-code-container">
+                    <img src="{{ qr_code }}" alt="QR Code">
+                </div>
+            </td>
+            <!-- Column 2 -->
+            <td style="width: 45%; text-align: center;vertical-align: top; ">
+                <span style=" font-weight: bold; font-size: 25px; border: 1px solid white; background-color: #0e0d0d; color: white; padding: 5px; display: inline-block;">
+                    Challan Form No. 32-A
+                </span>
+                <p style="margin-top: 5px;font-size: large; font-weight: normal">Challan No.: <u>{{ license_code }}</u></p>
+            </td>
+
+
+            <!-- Column 3 -->
+            <td style="width: 25%; text-align: right; padding: 1px;">
+                <div style="border: 1px solid black; display: inline-block; padding: 5px;">
+                    Treasury/Sub-Treasury<br>
+                    National Bank of Pakistan<br>
+                    State Bank of Pakistan
+                </div>
+
+            </td>
+
+        </tr>
+    </table>
+
+
+    <table class="form-table">
+        <tr>
+            <th style="text-align: center" colspan="3">To be filled in by the remitter</th>
+            <th colspan="3" style="text-align: center">To be filled in by the Departmental Officer or the Treasury</th>
+        </tr>
+        <tr>
+            <td>By whom tendered, Name of the candidate</td>
+            <td>Name (or designation) and address of the person<br> on whose behalf money is paid</td>
+            <td>Full particulars <br>of the remittances and<br> the authority (if any)</td>
+            <td>Amount Rs.</td>
+            <td>Head of Account</td>
+            <td>Order to the Bank</td>
+        </tr>
+        <tr>
+            <td>{{ applicant_name }}</td>
+            <td>{{ business_name }}</td>
+            <td>Plastic License Fee paid to<br> Environmental Protection Agency, Punjab<br>
+                {#                <br> NBP Charges</td>#}
+                {#            <td>{{ amount }}/-<br><br><br> {{ nbp_charges }}</td>#}
+                <td>{{ amount }}/-<br></td>
+            <td>C03855</td>
+            <td>Date :____________________<br>
+                Correct, Received and grant Receipt<br>
+                Signature and full designation of full
+                Officer<br> ordering the money to be paid<br>
+            </td>
+
+        </tr>
+        <tr>
+            <td colspan="4" style="padding: 2px;">
+                <div style="display: table; width: 100%; margin-bottom: 2px;">
+                    <div style="display: table-cell; text-align: left;">
+                        <strong>Total:</strong>
+                    </div>
+                    <div style="display: table-cell; text-align: right;">
+                        <b>{{ amount_total }} /-</b>
+                    </div>
+                </div>
+                <div style="margin-bottom: 2px;">
+                    <strong>(in words) Rupees:</strong> {{ amount_words }}
+                </div>
+                <div>
+                    <strong>Signature:</strong> ______________________________________
+                </div>
+            </td>
+
+            <td colspan="2">
+                To be used only in the
+                case of
+                remittances to
+                Bank through an officer
+                of the Government
+            </td>
+        </tr>
+    </table>
+    <span style="text-align: center">
+        Received Payment (in words): <u>{{ amount_words }}</u>
+    </span>
+    <table style="width: 100%; margin-top: 10px; text-align: center; border-collapse: collapse;">
+        <tr>
+            <td style="width: 25%; text-align: center;">Treasurer</td>
+            <td style="width: 25%; text-align: center;">Accountant</td>
+            <td style="width: 25%; text-align: center;">Date</td>
+            <td style="width: 25%; text-align: center;">Treasury Officer<br>Agent</td>
+        </tr>
+    </table>
+
+
+</div>
+<div class="divider"></div>
+<!-- Treasury FORM -->
+<div class="form-container">
+    <table style="width: 100%; border: none;">
+        <tr>
+            <!-- Column 1 -->
+            <td style="width: 15%; text-align: left;  padding: 1px;">
+                <div style=" border: 1px solid black; padding: 10px; display: inline-block;">
+                    Depositor Copy
+                </div>
+                <div style="margin-top: 5px;">Chalan of cash paid into the</div>
+            </td>
+            <td style="width: 15%; text-align: center; vertical-align: middle;">
+                <div class="qr-code-container">
+                    <img src="{{ qr_code }}" alt="QR Code">
+                </div>
+            </td>
+            <!-- Column 2 -->
+            <td style="width: 45%; text-align: center;vertical-align: top; ">
+                <span style=" font-weight: bold; font-size: 25px; border: 1px solid white; background-color: #0e0d0d; color: white; padding: 5px; display: inline-block;">
+                    Challan Form No. 32-A
+                </span>
+                <p style="margin-top: 5px;font-size: large; font-weight: normal">Challan No.: <u>{{ license_code }}</u></p>
+            </td>
+
+
+            <!-- Column 3 -->
+            <td style="width: 25%; text-align: right; padding: 1px;">
+                <div style="border: 1px solid black; display: inline-block; padding: 5px;">
+                    Treasury/Sub-Treasury<br>
+                    National Bank of Pakistan<br>
+                    State Bank of Pakistan
+                </div>
+
+            </td>
+
+        </tr>
+    </table>
+
+
+    <table class="form-table">
+        <tr>
+            <th style="text-align: center" colspan="3">To be filled in by the remitter</th>
+            <th colspan="3" style="text-align: center">To be filled in by the Departmental Officer or the Treasury</th>
+        </tr>
+        <tr>
+            <td>By whom tendered, Name of the candidate</td>
+            <td>Name (or designation) and address of the person<br> on whose behalf money is paid</td>
+            <td>Full particulars <br>of the remittances and<br> the authority (if any)</td>
+            <td>Amount Rs.</td>
+            <td>Head of Account</td>
+            <td>Order to the Bank</td>
+        </tr>
+        <tr>
+            <td>{{ applicant_name }}</td>
+            <td>{{ business_name }}</td>
+            <td>Plastic License Fee paid to<br> Environmental Protection Agency, Punjab<br>
+                {#                <br> NBP Charges</td>#}
+                {#            <td>{{ amount }}/-<br><br><br> {{ nbp_charges }}</td>#}
+                <td>{{ amount }}/-<br></td>
+            <td>C03855</td>
+            <td>Date :____________________<br>
+                Correct, Received and grant Receipt<br>
+                Signature and full designation of full
+                Officer<br> ordering the money to be paid<br>
+            </td>
+
+        </tr>
+        <tr>
+            <td colspan="4" style="padding: 2px;">
+                <div style="display: table; width: 100%; margin-bottom: 2px;">
+                    <div style="display: table-cell; text-align: left;">
+                        <strong>Total:</strong>
+                    </div>
+                    <div style="display: table-cell; text-align: right;">
+                        <b>{{ amount_total }} /-</b>
+                    </div>
+                </div>
+                <div style="margin-bottom: 2px;">
+                    <strong>(in words) Rupees:</strong> {{ amount_words }}
+                </div>
+                <div>
+                    <strong>Signature:</strong> ______________________________________
+                </div>
+            </td>
+
+            <td colspan="2">
+                To be used only in the
+                case of
+                remittances to
+                Bank through an officer
+                of the Government
+            </td>
+        </tr>
+    </table>
+    <p style="text-align: center">
+        Received Payment (in words): <u>{{ amount_words }}</u>
+    </p>
+    <table style="width: 100%; margin-top: 10px; text-align: center; border-collapse: collapse;">
+        <tr>
+            <td style="width: 25%; text-align: center;">Treasurer</td>
+            <td style="width: 25%; text-align: center;">Accountant</td>
+            <td style="width: 25%; text-align: center;">Date</td>
+            <td style="width: 25%; text-align: center;">Treasury Officer<br>Agent</td>
+        </tr>
+    </table>
+
+
+</div>
+</body>
+
+</html>

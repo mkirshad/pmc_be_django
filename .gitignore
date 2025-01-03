@@ -1,0 +1,13 @@
+*.pyc
+pmc_api/__pycache__/serializers.cpython-313.pyc
+pmc_api/__pycache__/serializers.cpython-313.pyc
+pmc_api/__pycache__/urls.cpython-313.pyc
+/pmc_api/__pycache__
+pmc_api/controllers/__pycache__/bank_chalan.cpython-313.pyc
+pmc_be/__pycache__/settings.cpython-313.pyc
+/pmc_be/__pycache__/
+/pmc_api/__pycache__/
+*.pyc
+pmc_api/__pycache__/custom_permissions.cpython-313.pyc
+pmc_api/__pycache__/custom_permissions.cpython-313.pyc
+*.pyc
