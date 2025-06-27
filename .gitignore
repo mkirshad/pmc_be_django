@@ -11,3 +11,5 @@ pmc_be/__pycache__/settings.cpython-313.pyc
 pmc_api/__pycache__/custom_permissions.cpython-313.pyc
 pmc_api/__pycache__/custom_permissions.cpython-313.pyc
 *.pyc
+pmc_be/wsgi.py
+pmc_be/settings.py

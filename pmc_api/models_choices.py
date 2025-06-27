@@ -21,8 +21,22 @@ USER_GROUPS = (
     ('LSM2','LSM'),
     ('TL', 'TL'),
     ('DEO', 'DEO'),
+    ('DG', 'DG'),
     ('Download License','Download License')
 )
+
+USER_GROUPS_DO = (
+    ('APPLICANT', 'APPLICANT'),
+    ('LSO', 'LSO'),
+    ('LSM', 'LSM'),
+    ('DO', 'DO'),
+    ('LSM2','LSM'),
+    ('TL', 'TL'),
+    ('DEO', 'DEO'),
+    ('DG', 'DG'),
+    ('Download License','Download License')
+)
+
 REG_TYPE_CHOICES = [
     ('Producer', 'Producer'),
     ('Consumer', 'Consumer'),

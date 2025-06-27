@@ -14,7 +14,7 @@ from rest_framework.views import APIView
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
 from rest_framework import status
-from pyzbar.pyzbar import decode
+# from pyzbar.pyzbar import decode
 from PIL import Image
 from io import BytesIO
 from pmc_api.models import *

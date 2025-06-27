@@ -1,4 +1,5 @@
 from rest_framework.permissions import BasePermission
+from rest_framework import exceptions
 
 class IsOwnerOrAdmin(BasePermission):
     """
@@ -39,12 +40,67 @@ class IsOwnerOrAdmin(BasePermission):
         # Deny access otherwise
         return False
     
+class IsInAnalytics1Group(BasePermission):
+    """
+    Custom permission to allow access only to users in the 'Analytics1' group.
+    """
+    def has_permission(self, request, view):
+        # Check if the user is authenticated
+        if not request.user or not request.user.is_authenticated:
+            return False
+        
+        # Check if the user is part of the 'Analytics1' group
+        if request.user.groups.filter(name='Analytics1').exists():
+            return True
+        
+        # If the user is not in the required group, deny access
+        raise exceptions.PermissionDenied("You do not have permission to access this resource.")
+
+class IsInAnalytics2Group(BasePermission):
+    """
+    Custom permission to allow access only to users in the 'Analytics1' group.
+    """
+    def has_permission(self, request, view):
+        # Check if the user is authenticated
+        if not request.user or not request.user.is_authenticated:
+            return False
+        
+        # Check if the user is part of the 'Analytics1' group
+        if request.user.groups.filter(name='Analytics2').exists() or request.user.groups.filter(name='Analytics').exists():
+            return True
+        
+        # If the user is not in the required group, deny access
+        raise exceptions.PermissionDenied("You do not have permission to access this resource.")
     
-        # user = self.request.user
-        # target_groups = {'LSO', 'LSM', 'DO', 'TL', 'MO', 'LSM2','DEO', 'Download License'}
-        # user_groups = set(user.groups.values_list('name', flat=True))
-        # matching_groups = user_groups.intersection(target_groups)
+class IsInAnalytics3Group(BasePermission):
+    """
+    Custom permission to allow access only to users in the 'Analytics1' group.
+    """
+    def has_permission(self, request, view):
+        # Check if the user is authenticated
+        if not request.user or not request.user.is_authenticated:
+            return False
+        
+        # Check if the user is part of the 'Analytics1' group
+        if request.user.groups.filter(name='Analytics3').exists():
+            return True
+        
+        # If the user is not in the required group, deny access
+        raise exceptions.PermissionDenied("You do not have permission to access this resource.")
+
+class IsGroupExist(BasePermission):
+    """
+    Custom permission to allow access only to users in the 'Analytics1' group.
+    """
+    def has_permission(self, request, view):
+        # Check if the user is authenticated
+        if not request.user or not request.user.is_authenticated:
+            return False
+        
+        # Check if the user is part of the 'Analytics1' group
+        if request.user.groups.exists():
+            return True  # User is part of at least one group
 
         
-        # if matching_groups:
-        #     return ApplicantDetail.objects.filter(assigned_group__in=matching_groups)
+        # If the user is not in the required group, deny access
+        raise exceptions.PermissionDenied("You do not have permission to access this resource.")

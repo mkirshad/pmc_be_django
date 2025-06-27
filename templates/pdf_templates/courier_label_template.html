@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        padding: 20px;
+      }
+
+      .label-box {
+        border: 2px dashed #000;
+        padding: 25px;
+        width: 550px;
+        margin: auto;
+      }
+
+      .section {
+        margin-bottom: 18px;
+      }
+
+      .title {
+        text-align: center;
+        font-size: 20px;
+        font-weight: bold;
+        margin-bottom: 20px;
+        text-transform: uppercase;
+      }
+
+      .heading {
+        font-weight: bold;
+        margin-bottom: 6px;
+        font-size: 15px;
+      }
+
+      .info {
+        margin-left: 15px;
+        line-height: 1.5;
+      }
+
+      .note {
+        color: #b30000;
+        font-size: 13px;
+        font-style: italic;
+        margin-top: 20px;
+        text-align: center;
+      }
+
+      .highlight {
+        color: #000;
+        font-weight: bold;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="label-box">
+      <div class="title">Courier Label - Competition Submission</div>
+
+      <div class="section">
+        <div class="heading">To:</div>
+        <div class="info">
+          Plastic Management Cell<br />
+          Office # 801-A, 8th Floor, City Tower<br />
+          6K, Gulberg 2, Lahore<br />
+          Ph: 042-37897103-4
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="heading">From:</div>
+        <div class="info">
+          Name: <span class="highlight">{{ student_name }}</span><br />
+          Class: {{ class_name }}<br />
+          Institution: {{ institution }}<br />
+          Registration ID: <span class="highlight">{{ registration_id }}</span
+          ><br />
+          Mobile: {{ mobile }}
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="heading">Competition:</div>
+        <div class="info">{{ competition_name }}</div>
+      </div>
+
+      <div class="note">
+        ❗ Please print and paste this label on your courier package before
+        dispatching competition submission to the Plastic Management Cell.
+      </div>
+    </div>
+  </body>
+</html>

@@ -28,13 +28,19 @@ PROJECT_ROOT = os.path.abspath(os.path.dirname(__file__))
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
+# MEDIA_ROOT = os.path.join(BASE_DIR, '/')
+# MEDIA_URL = '/'
+
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = '***'
+SECRET_KEY = 'django-insecure-6d!d39lez)c@9(y6zz)bgmq6rv*i1^x74anmeu813cy3@z24_q'
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = [
+ALLOWED_HOSTS = ['plmis.epapunjab.pk',  # Your main domain
+                 'www.plmis.epapunjab.pk',  # Subdomain (optional, for consistency)
+                 '103.111.161.18',  # Public IP
+                 '10.50.126.18',  # Private IP (optional, for internal communication)
                  '127.0.0.1',  # Localhost (for proxy forwarding)
                  'localhost',  # Localhost (for development/testing)
                  ]
@@ -51,13 +57,15 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'accounts',
-    'pmc_api',
+    'pmc_api.apps.PmcApiConfig',
+    'pmc_be',
     'rest_framework_simplejwt',
     'oauth2_provider',
+    'simple_history',
 ]
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'pmc_api.authentication.JWTAuthenticationWithUserTracking',  # ✅ must stay here
         'django_rest_token_expiry.authentication.ExpiringTokenAuthentication',
         'oauth2_provider.contrib.rest_framework.OAuth2Authentication',
     ],
@@ -70,10 +78,12 @@ MIDDLEWARE = [
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'oauth2_provider.middleware.OAuth2TokenMiddleware',
-    # 'django.middleware.csrf.CsrfViewMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'pmc_api.middleware.CurrentUserMiddleware',
+    'simple_history.middleware.HistoryRequestMiddleware',
 ]
 
 
@@ -104,11 +114,13 @@ WSGI_APPLICATION = 'pmc_be.wsgi.application'
 
 DATABASES = {
     'default': {
+#        'ENGINE': 'django.db.backends.sqlite3',
+#        'NAME': BASE_DIR / 'db2.sqlite3',
         'ENGINE': 'django.contrib.gis.db.backends.postgis',
-        'USER': '***',
-        'NAME': '***',
-        'HOST': '***',
-        'PASSWORD': '***',
+        'USER': '*****',
+        'NAME': '*****',
+        'HOST': '127.0.0.1',
+        'PASSWORD': '*****',
         'PORT': '5432',
         'CONN_MAX_AGE': 600,  # 10 minutes
     }
@@ -155,3 +167,18 @@ STATICFILES_DIRS = [os.path.join(PROJECT_ROOT, 'static')]
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
+        'LOCATION': '/tmp/django_cache',
+        'TIMEOUT': 3600,  # 1 hour
+    }
+}
+
+SIMPLE_HISTORY_HISTORY_ID_USE_UUID = True  # optional, for cleaner IDs
+
+SIMPLE_HISTORY_USER_ID_FIELD = 'user_id'  # default
+
+# 👇 Add this so our `get_current_user()` is used
+SIMPLE_HISTORY_GET_USER = 'pmc_api.middleware.get_current_user'

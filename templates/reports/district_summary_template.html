@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 30px;
+      }
+      .header {
+        text-align: center;
+      }
+      .header img {
+        height: 80px;
+      }
+      h2 {
+        text-align: center;
+        margin-bottom: 20px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+      }
+      th,
+      td {
+        border: 1px solid #888;
+        padding: 6px;
+        text-align: center;
+      }
+      th {
+        background-color: #b7dee8;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <img src="{{ logo_path }}" alt="PMIS Logo" />
+    </div>
+    <h2>{{ title }}</h2>
+    <table>
+      <thead>
+        <tr>
+          {% for head in headers %}
+          <th>{{ head }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          {% for value in row %}
+          <td>{{ value }}</td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </body>
+</html>

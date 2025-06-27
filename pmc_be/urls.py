@@ -19,7 +19,6 @@ from django.urls import path, include
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from accounts.views import RegisterView, LoginView, ProfileView
-
 router = DefaultRouter()
 
 # Registering views with the router
@@ -31,5 +30,5 @@ urlpatterns = [
     path('api/accounts/', include('accounts.urls')),  # Include user API endpoints
     path('api/pmc/', include('pmc_api.urls')),
     path('o/', include('oauth2_provider.urls', namespace='oauth2_provider')),
-
+    # path('api/auth/reset-password/', ResetPasswordView.as_view(), name='reset-password'),
 ]

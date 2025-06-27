@@ -1,6 +1,6 @@
 from django.contrib.auth.models import User, Group
 from django.core.validators import MinLengthValidator, RegexValidator
-from django.db import models
+from django.contrib.gis.db import models
 from django.db.models import JSONField
 
 from pmc_api.models_choices import *
@@ -10,6 +10,8 @@ import uuid
 import os
 from datetime import datetime, timedelta
 from django.utils import timezone
+from django.contrib.gis.geos import Point
+from simple_history.models import HistoricalRecords
 
 class TblDivisions(models.Model):
     #  gid = models.AutoField()
@@ -25,6 +27,7 @@ class TblDivisions(models.Model):
     class Meta:
         managed = False
         db_table = 'tbl_divisions'
+        verbose_name_plural = "Divisions"
 
 
 class TblDistricts(models.Model):
@@ -35,11 +38,20 @@ class TblDistricts(models.Model):
     district_code = models.CharField(max_length=254)
     short_name = models.CharField(max_length=3)
     pitb_district_id = models.IntegerField(null=True, blank=True)
-    
+    geom = models.GeometryField(srid=4326, null=True, blank=True)
+
     # geom = models.GeometryField(srid=0, blank=True, null=True)
 
     def __str__(self):
         return self.district_name
+
+    def get_district_by_coordinates(lat, lon):
+        point = Point(lon, lat, srid=4326)  # Create a Point in SRID 4326
+        district = TblDistricts.objects.filter(geom__contains=point).first()  # Check which district contains this point
+        
+        if district:
+            return district.district_name
+        return "District not found"
 
     class Meta:
         managed = False
@@ -70,6 +82,7 @@ class TblTehsils(models.Model):
         managed = False
         db_table = 'tbl_tehsils'
         ordering = ['tehsil_name', ]
+        verbose_name_plural = "Tehsils"
         indexes = [
             models.Index(fields=['district'], name='idx_tehsil_district'),
             models.Index(fields=['tehsil_code'], name='idx_tehsil_code'),
@@ -116,19 +129,33 @@ class ApplicantDetail(models.Model):
         editable=False,
         unique=False
     )
-
+    history = HistoricalRecords()
     def __str__(self):
         return f"{self.first_name} {self.last_name}"
 
     def save(self, *args, **kwargs):
-        # Check if the application_status is 'Submitted'
+        # Ensure the object is saved only once and the primary key is set correctly
+        is_new_record = self.pk is None  # Check if this is a new record
+
+        # If it's a new record, set the primary key to None so that Django can auto-generate it
+        if is_new_record:
+            self.pk = None  # Ensures auto-generation of primary key by Django
+
+        # Check if the application_status is 'Submitted' for both new and existing records
         if self.application_status == 'Submitted':
-            # Set the assigned_group to 'LSO'
-            self.assigned_group = 'LSO'
+            # For existing records, set assigned_group to 'LSO' if it's None or 'APPLICANT'
+            if not is_new_record:
+                existing_record = ApplicantDetail.objects.filter(pk=self.pk).first()
+                if existing_record and (existing_record.assigned_group is None or existing_record.assigned_group == 'APPLICANT'):
+                    self.assigned_group = 'LSO'
+            # For new records, set assigned_group to 'LSO' if it's None or 'APPLICANT'
+            elif self.assigned_group is None or self.assigned_group == 'APPLICANT':
+                self.assigned_group = 'LSO'
             
-            # Create a record in the ApplicationSubmitted model
+            # Create a record in the ApplicationSubmitted model if it doesn't exist
             if not ApplicationSubmitted.objects.filter(applicant=self).exists():
                 ApplicationSubmitted.objects.create(applicant=self)
+
         # Check if a BusinessProfile exists for this applicant
         if hasattr(self, 'businessprofile') and self.businessprofile:
             business_profile = self.businessprofile
@@ -136,16 +163,16 @@ class ApplicantDetail(models.Model):
 
             # Ensure district and registration_for exist
             if district and self.registration_for:
-                district_code = district.short_name or district.district_name[
-                                                       :3].upper() or "XXX"  # Use "XXX" if short_name is missing
+                district_code = district.short_name or district.district_name[:3].upper() or "XXX"  # Use "XXX" if short_name is missing
                 registration_code = self.registration_for[:3].upper()  # First 3 letters of registration_for
                 applicant_id = str(self.id).zfill(3)  # Zero-padded applicant ID
 
                 # Generate tracking_number
                 self.tracking_number = f"{district_code}-{registration_code}-{applicant_id}"
 
-        # Call the parent save method to save the instance
+        # Save the instance only once, after all modifications
         super().save(*args, **kwargs)
+
 
     class Meta:
         indexes = [
@@ -160,7 +187,7 @@ class ApplicationSubmitted(models.Model):
     applicant = models.OneToOneField(ApplicantDetail, on_delete=models.CASCADE, blank=True, null=True,
                                      related_name='submittedapplication')
     created_at = models.DateTimeField(auto_now_add=True)
-    
+    history = HistoricalRecords()
 class BusinessProfile(models.Model):
     entity_type = models.CharField(
         max_length=20, choices=ENTITY_TYPE_CHOICES, default='Individual'
@@ -213,7 +240,8 @@ class BusinessProfile(models.Model):
     updated_by = models.ForeignKey(User, on_delete=models.CASCADE, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True)
     created_by = models.ForeignKey(User, on_delete=models.CASCADE, blank=True, null=True, related_name='businessprofilecreatedby')
-
+    history = HistoricalRecords()
+    
     def __str__(self):
         return self.business_name or self.name
 
@@ -269,7 +297,7 @@ class Producer(models.Model):
     # Documents
     # flow_diagram = models.FileField(upload_to='diagrams/', blank=True, null=True)
     # consent_permit = models.FileField(upload_to='permit/', blank=True, null=True)
-
+    history = HistoricalRecords()
 
 class RawMaterial(models.Model):
     producer = models.ForeignKey(Producer, on_delete=models.CASCADE)
@@ -303,7 +331,8 @@ class Consumer(models.Model):
     created_by = models.ForeignKey(User, on_delete=models.CASCADE, blank=True, null=True, related_name='consumercreatedby')
 
     registration_required_for_other_other_text = models.CharField(max_length=1024, blank=True, null=True)
-
+    history = HistoricalRecords()
+    
     def __str__(self):
         return self.applicant.first_name
 
@@ -356,6 +385,7 @@ class Collector(models.Model):
     updated_by = models.ForeignKey(User, on_delete=models.CASCADE, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True)
     created_by = models.ForeignKey(User, on_delete=models.CASCADE, blank=True, null=True, related_name='collectorcreatedby')
+    history = HistoricalRecords()
     
     def __str__(self):
         return f"Collector ID: {self.id}, Collection Capacity: {self.total_capacity_value} Kg/day"
@@ -382,9 +412,22 @@ class Recycler(models.Model):
     updated_by = models.ForeignKey(User, on_delete=models.CASCADE, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True)
     created_by = models.ForeignKey(User, on_delete=models.CASCADE, blank=True, null=True, related_name='recyclercreatedby')
+    history = HistoricalRecords()
     
     def __str__(self):
         return self.applicant.first_name
+
+    # Method to sum up wasteCollection from JSONField
+    def get_total_waste_collected(self):
+        return sum(
+            float(item.get("wasteCollection", 0) or 0) for item in self.selected_categories
+        )
+
+    # Method to sum up wasteDisposal from JSONField
+    def get_total_waste_disposed(self):
+        return sum(
+            float(item.get("wasteDisposal", 0) or 0) for item in self.selected_categories
+        )
 
 
 class ApplicationAssignment(models.Model):
@@ -397,7 +440,8 @@ class ApplicationAssignment(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey(User, on_delete=models.CASCADE, blank=True, null=True,
                                    related_name='applicationassignmentcreatedby')
-
+    history = HistoricalRecords()
+    
     def __str__(self):
         return self.applicant.first_name
 
@@ -426,6 +470,7 @@ class ApplicantDocuments(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey(User, on_delete=models.CASCADE, blank=True, null=True,
                                    related_name='applicationdocumentcreatedby')
+    history = HistoricalRecords()
 
     def __str__(self):
         return self.applicant.first_name
@@ -436,11 +481,36 @@ class ApplicantDocuments(models.Model):
             models.Index(fields=['created_by'], name='idx_document_created_by'),
         ]
 
+# User Profile Model (OneToOne with User)
+class UserProfile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)  # One-to-One with User
+    district = models.ForeignKey(TblDistricts, on_delete=models.CASCADE, db_column='district_id',
+                                 verbose_name="District", blank=True, null=True, related_name='userprofile')
+    history = HistoricalRecords()
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.district.short_name if self.district else 'No District'}"
 
 class GroupSerializer(serializers.ModelSerializer):
+    district_id = serializers.SerializerMethodField()
+    district_name = serializers.SerializerMethodField()
     class Meta:
         model = Group
-        fields = ['id', 'name']
+        fields = ['id', 'name', 'district_id', 'district_name']
+
+    def get_district_id(self, obj):
+        user = self.context['request'].user
+        try:
+            return user.userprofile.district.district_id  # Fetch district_id from UserProfile
+        except UserProfile.DoesNotExist:
+            return None  # Return None if no district assigned
+
+    def get_district_name(self, obj):
+        user = self.context['request'].user
+        try:
+            return user.userprofile.district.district_name  # Fetch district_name from UserProfile
+        except UserProfile.DoesNotExist:
+            return None  # Return None if no district assigned
 
 
 class PSIDTracking(models.Model):
@@ -472,7 +542,7 @@ class PSIDTracking(models.Model):
     
     created_by = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
-
+    history = HistoricalRecords()
     def __str__(self):
         return f"PSID {self.consumer_number or 'Pending'} - {self.dept_transaction_id}"
 
@@ -484,7 +554,8 @@ class ApplicantFieldResponse(models.Model):
     
     created_by = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
-
+    history = HistoricalRecords()
+    
     def __str__(self):
         return f"{self.field_key} - {self.response}"
 
@@ -565,7 +636,7 @@ class ApplicantManualFields(models.Model):
         related_name='applicantmanualfields_updated'
     )
     updated_at = models.DateTimeField(auto_now=True)
-
+    history = HistoricalRecords()
     def __str__(self):
         return f"Manual Fields for {self.applicant} (ID: {self.id})"
 
@@ -576,7 +647,7 @@ class ApplicantFee(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     reason = models.TextField(blank=True, null=True)  # Reason or purpose for the fee (optional)
-
+    history = HistoricalRecords()
     class Meta:
         ordering = ['-created_at']  # Order by latest fee first
 
@@ -600,7 +671,8 @@ class ServiceConfiguration(models.Model):
     client_secret = models.CharField(max_length=500)
 
     updated_at = models.DateTimeField(auto_now=True)
-
+    history = HistoricalRecords()
+    
     def __str__(self):
         return self.service_name
 
@@ -610,7 +682,8 @@ class ExternalServiceToken(models.Model):
     expires_at = models.DateTimeField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-
+    history = HistoricalRecords()
+    
     def is_expired(self):
         # Give a little buffer (e.g. 30 seconds) to account for clock skew
         return timezone.localtime() > self.expires_at
@@ -628,3 +701,335 @@ class ApiLog(models.Model):
 
     def __str__(self):
         return f"{self.service_name} - {self.endpoint} - {self.created_at.strftime('%Y-%m-%d %H:%M:%S')}"
+    
+
+class License(models.Model):
+    # If you want to store the specific role (Producer, Stockist, etc.)
+    # as a text field, you can do so directly or use choices:
+
+    license_for = models.CharField(
+        max_length=50,
+        default="producer",  # or whichever default you want
+        verbose_name="License For",
+        help_text="Type of license issued (e.g., Producer, Stockist, Distributor, etc.)"
+    )
+
+    license_number = models.CharField(
+        max_length=100,
+        unique=False,  # or True, depending on your rules
+        verbose_name="License Number"
+    )
+
+    license_duration = models.CharField(
+        max_length=50,
+        verbose_name="License Duration",
+        help_text="e.g., '3 Years'"
+    )
+
+    owner_name = models.CharField(
+        max_length=200,
+        verbose_name="Owner’s Name"
+    )
+
+    business_name = models.CharField(
+        max_length=200,
+        verbose_name="Business Name"
+    )
+
+    types_of_plastics = models.CharField(
+        max_length=200,
+        verbose_name="Types of Plastics",
+        help_text="e.g., 'ABC, DEF'"
+    )
+    
+    particulars = models.CharField(
+        max_length=200,
+        verbose_name="Particulars",
+        help_text="e.g., 'ABC, DEF'"
+    )
+    
+    fee_amount = models.DecimalField(max_digits=10, decimal_places=2)
+    
+    address = models.CharField(
+        max_length=300,
+        verbose_name="Address"
+    )
+
+    date_of_issue = models.DateField(
+        verbose_name="Date of Issue",
+        help_text="e.g., '10.01.2025'"
+    )
+
+    # applicant_id could be an integer if you have no Applicant model,
+    # or a ForeignKey if you do have an Applicant model
+    applicant_id = models.IntegerField(
+        verbose_name="Applicant ID",
+        help_text="Link this license to an applicant record"
+    )
+    # If you have an Applicant model, do instead:
+    # applicant = models.ForeignKey(Applicant, on_delete=models.CASCADE)
+
+    # Status field to indicate active/inactive
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name="Is Active",
+        help_text="Indicates whether the license is active."
+    )
+    
+    # Audit fields
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Created At"
+    )
+
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE, blank=True, null=True)
+
+    # If you want to track the user who created it, use a ForeignKey to settings.AUTH_USER_MODEL
+    models.ForeignKey(User, on_delete=models.CASCADE, blank=True, null=True)
+    
+    history = HistoricalRecords()
+    class Meta:
+        # If you need a constraint that each license_number can only appear once per date_of_issue:
+        # unique_together = ("license_number", "date_of_issue")
+        ordering = ["-created_at"]  # or whichever ordering you prefer
+
+
+    def formatted_date_of_issue(self):
+        # Return dd.mm.yyyy
+        return self.date_of_issue.strftime("%d.%m.%Y")
+    
+    def types_of_plastics_truncated(self):
+        """
+        Truncate the text to the first `max_length` characters.
+        If a comma exists within these characters, truncate up to the last comma.
+        Otherwise, truncate at `max_length`.
+
+        Args:
+            text (str): The input string to be truncated.
+            max_length (int): The maximum number of characters to retain.
+
+        Returns:
+            str: The truncated string.
+        """
+        text = self.types_of_plastics
+        max_length=71
+        if not text:
+            return ""
+
+        if len(text) <= max_length:
+            return text
+
+        substring = text[:max_length]
+        last_comma_index = substring.rfind(',')
+
+        if last_comma_index != -1:
+            return substring[:last_comma_index]
+        else:
+            return substring
+    
+    def license_for_formatted(self):
+        return "Stockist/Distributor/Supplier" if self.license_for == "Consumer" else self.license_for or "Not Specified"
+        
+    def __str__(self):
+        return f"{self.license_number} ({self.license_for})"    
+
+def upload_affidavits_to_with_uuid(instance, filename):
+    """
+    Generates a unique filename by prepending a UUID to the original filename.
+    """
+    original_name, ext = os.path.splitext(filename)  # Separate the original name and extension
+    unique_filename = f"{uuid.uuid4()}_{original_name}{ext}"  # Prepend UUID and keep original name
+    return os.path.join('media/affidavits/', unique_filename)
+
+def upload_inspections_to_with_uuid(instance, filename):
+    """
+    Generates a unique filename by prepending a UUID to the original filename.
+    """
+    original_name, ext = os.path.splitext(filename)  # Separate the original name and extension
+    unique_filename = f"{uuid.uuid4()}_{original_name}{ext}"  # Prepend UUID and keep original name
+    return os.path.join('media/inspections/', unique_filename)
+
+class InspectionReport(models.Model):
+    business_name = models.CharField(max_length=255)
+    business_type = models.CharField(max_length=50)
+
+    license_number = models.CharField(max_length=50, blank=True, null=True)
+
+    violation_found = models.JSONField(blank=True, null=True)
+    violation_type = models.JSONField(blank=True, null=True)
+    action_taken = models.JSONField(blank=True, null=True)
+
+    plastic_bags_confiscation = models.FloatField(blank=True, null=True)
+    confiscation_other_plastics = models.JSONField(blank=True, null=True)
+    total_confiscation = models.FloatField(blank=True, null=True)
+
+    other_single_use_items = models.JSONField(blank=True, null=True)
+
+    latitude = models.FloatField(blank=True, null=True)
+    longitude = models.FloatField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    # ✅ New Fields Added
+    inspection_date = models.DateField(blank=True, null=True)
+    fine_amount = models.FloatField(blank=True, null=True)
+    fine_recovery_status = models.CharField(
+        max_length=20, 
+        choices=[("Pending", "Pending"), ("Partial", "Partial"), ("Recovered", "Recovered")],
+        blank=True,
+        null=True
+    )
+    fine_recovery_date = models.DateField(blank=True, null=True)
+    recovery_amount = models.FloatField(blank=True, null=True)
+    de_sealed_date = models.DateField(blank=True, null=True)
+    fine_recovery_breakup = models.JSONField(blank=True, null=True)
+
+    # ✅ Affidavit (File Upload)
+    affidavit = models.FileField(upload_to=upload_affidavits_to_with_uuid, blank=True, null=True)
+    district = models.ForeignKey(TblDistricts, on_delete=models.CASCADE, db_column='district_id',
+                                 verbose_name="District", blank=True, null=True, related_name='inspectionreport')
+
+    # ✅ Created By User (New Field)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="inspections")
+    history = HistoricalRecords()
+
+    confiscation_receipt = models.FileField(
+        upload_to=upload_inspections_to_with_uuid,
+        null=True,
+        blank=True
+    )
+
+    payment_challan = models.FileField(
+        upload_to=upload_inspections_to_with_uuid,
+        null=True,
+        blank=True
+    )
+
+    receipt_book_number = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True
+    )
+
+    receipt_number = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True
+    )
+
+    def save(self, *args, **kwargs):
+        """Ensure all unique 'other_single_use_items' are stored in the snapshot"""
+        super().save(*args, **kwargs)  # Save report first
+
+        # Fetch or create the single record in `SingleUsePlasticsSnapshot`
+        snapshot, created = SingleUsePlasticsSnapshot.objects.get_or_create(id=1)
+
+        # Ensure other_single_use_items is a list before updating the snapshot
+        if isinstance(self.other_single_use_items, list):
+            snapshot.update_snapshot(self.other_single_use_items)
+
+    def __str__(self):
+        return f"{self.business_name} - {self.business_type}"
+
+class SingleUsePlasticsSnapshot(models.Model):
+    plastic_items = models.JSONField(default=list)  # Store unique items
+
+    def update_snapshot(self, new_items):
+        """Ensure the snapshot contains all unique items"""
+        current_items = set(self.plastic_items)  # Convert to a set for uniqueness
+        current_items.update(new_items)  # Add new items
+        self.plastic_items = list(current_items)  # Convert back to a list
+        self.save()
+
+    def __str__(self):
+        return f"Snapshot of {len(self.plastic_items)} Single Use Plastic Items"
+
+def upload_plastic_committee_to_with_uuid(instance, filename):
+    """
+    Generates a unique filename by prepending a UUID to the original filename.
+    """
+    original_name, ext = os.path.splitext(filename)  # Separate the original name and extension
+    unique_filename = f"{uuid.uuid4()}_{original_name}{ext}"  # Prepend UUID and keep original name
+    return os.path.join('media/plastic_committee/', unique_filename)
+
+class DistrictPlasticCommitteeDocument(models.Model):
+    district = models.ForeignKey(TblDistricts, on_delete=models.CASCADE, related_name="committee_documents")
+    document_type = models.CharField(
+        max_length=50, choices=[('Notification', 'Notification'), ('Minutes of Meeting', 'Minutes of Meeting')]
+    )
+    title = models.CharField(max_length=1024, blank=True, null=True)
+    document = models.FileField(upload_to=upload_plastic_committee_to_with_uuid)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    uploaded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    document_date = models.DateField(null=True, blank=True) # New field for document date
+
+    history = HistoricalRecords()
+    def __str__(self):
+        return f"{self.district.district_name} - {self.document_type} ({self.uploaded_at.date()})"
+
+
+# models.py
+class AuditLog(models.Model):
+    ACTION_CHOICES = [
+        ("create", "Create"),
+        ("update", "Update"),
+        ("delete", "Delete"),
+        ("login", "Login"),
+        ("logout", "Logout"),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    action = models.CharField(max_length=10, choices=ACTION_CHOICES)
+    model_name = models.CharField(max_length=255, null=True, blank=True)
+    object_id = models.CharField(max_length=255, null=True, blank=True)
+    description = models.TextField()
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.timestamp} - {self.user} - {self.action}"
+
+class AccessLog(models.Model):
+    user = models.ForeignKey(User, null=True, on_delete=models.SET_NULL)
+    model_name = models.CharField(max_length=100)
+    object_id = models.CharField(max_length=100)
+    method = models.CharField(max_length=10)  # GET, POST
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    endpoint = models.CharField(max_length=255)
+
+
+def upload_student_card(instance, filename):
+    import uuid, os
+    ext = os.path.splitext(filename)[1]
+    return f"media/competition/student_cards/{uuid.uuid4()}{ext}"
+
+class CompetitionRegistration(models.Model):
+    COMPETITION_CHOICES = [
+        ('poster', 'Poster'),
+        ('painting', 'Painting'),
+        ('3d_model', '3D Model')
+    ]
+    CATEGORY_CHOICES = [
+        ('School', 'School/College'),
+        ('University', 'University')
+    ]
+    full_name = models.CharField(max_length=255)
+    institute = models.CharField(max_length=255)
+    grade = models.CharField(max_length=50)
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES)
+    competition_type = models.CharField(max_length=20, choices=COMPETITION_CHOICES)
+    mobile = models.CharField(max_length=10)
+    student_card_front = models.ImageField(upload_to=upload_student_card)
+    student_card_back = models.ImageField(upload_to=upload_student_card, null=True, blank=True)
+    photo_object = models.ImageField(upload_to=upload_student_card, null=True, blank=True)
+    registration_id = models.CharField(max_length=50, unique=True, editable=False)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    def save(self, *args, **kwargs):
+        if not self.registration_id:
+            import uuid
+            self.registration_id = str(uuid.uuid4())[:8].upper()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.full_name} - {self.competition_type}"

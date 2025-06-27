@@ -18,7 +18,7 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.http import HttpResponse
 from django.utils import timezone
-
+from django.template.loader import render_to_string, get_template
 
 @api_view(['POST'])
 @authentication_classes([])  # Disable authentication
@@ -164,148 +164,119 @@ def get_or_refresh_token(service_name, auth_endpoint, client_id, client_secret):
 
 @api_view(['POST'])
 @authentication_classes([CustomTokenAuthentication])
-@permission_classes([AllowAny])  # Requires valid authentication
+@permission_classes([AllowAny])
 def payment_intimation_view(request):
     """
-    Custom API view for processing payment intimations with detailed validation.
+    API view for processing payment intimations with detailed validation.
     """
     data = request.data
-    required_fields = ['consumerNumber', 'psidStatus', 'deptTransactionId', 'amountPaid', 'paidDate', 'paidTime',
-                       'bankCode']
+    required_fields = ['consumerNumber', 'psidStatus', 'deptTransactionId', 'amountPaid', 'paidDate', 'paidTime', 'bankCode']
 
-    # Check if any required field is missing
+    # Validate required fields
     for field in required_fields:
-        if field not in data:
-            response_data = {"status": "Fail", "message": f"{field} is missing"}
-            ApiLog.objects.create(
-                service_name="payment_intimation_exposed",
-                endpoint=request.build_absolute_uri(),
-                request_data=data,
-                response_data=response_data,
-                status_code=status.HTTP_400_BAD_REQUEST
-            )
-            return Response(response_data, status=status.HTTP_400_BAD_REQUEST)
+        if not data.get(field):
+            response_data = {"status": "Fail", "message": f"{field} is required and cannot be empty"}
+            return log_and_respond(request, response_data, status.HTTP_400_BAD_REQUEST)
+
+    # Validate consumerNumber
+    consumer_number = data.get('consumerNumber')
+    if not consumer_number or len(consumer_number.strip()) == 0:
+        response_data = {"status": "Fail", "message": "Consumer number cannot be empty or invalid"}
+        return log_and_respond(request, response_data, status.HTTP_400_BAD_REQUEST)
+
+    # Validate deptTransactionId
+    dept_transaction_id = data.get('deptTransactionId')
+    if not dept_transaction_id or len(dept_transaction_id.strip()) == 0:
+        response_data = {"status": "Fail", "message": "Department transaction ID/Challan number cannot be empty"}
+        return log_and_respond(request, response_data, status.HTTP_400_BAD_REQUEST)
+
+    # Validate psidStatus
+    psid_status = data.get('psidStatus')
+    if psid_status != "PAID":
+        response_data = {"status": "Fail", "message": "PSID status must be 'PAID'"}
+        return log_and_respond(request, response_data, status.HTTP_400_BAD_REQUEST)
+
+    # Validate paidDate
+    try:
+        paid_date = datetime.strptime(data['paidDate'], '%Y-%m-%d').date()
+    except ValueError:
+        response_data = {"status": "Fail", "message": "Paid date must be in YYYY-MM-DD format"}
+        return log_and_respond(request, response_data, status.HTTP_400_BAD_REQUEST)
+
+    # Validate paidTime
+    try:
+        paid_time = datetime.strptime(data['paidTime'], '%H:%M:%S').time()
+    except ValueError:
+        response_data = {"status": "Fail", "message": "Paid time must be in HH:MM:SS format"}
+        return log_and_respond(request, response_data, status.HTTP_400_BAD_REQUEST)
+
+    # Validate amountPaid
+    try:
+        amount_paid = float(data['amountPaid'])
+        if amount_paid <= 0:
+            raise ValueError
+    except ValueError:
+        response_data = {"status": "Fail", "message": "Amount paid must be a positive number"}
+        return log_and_respond(request, response_data, status.HTTP_400_BAD_REQUEST)
 
     # Validate Bank Code
     bank_code = data['bankCode']
     if not bank_code.isalnum():
-        response_data = {"status": "Fail", "message": "Special characters are not allowed in Bank Code"}
-        ApiLog.objects.create(
-            service_name="payment_intimation_exposed",
-            endpoint=request.build_absolute_uri(),
-            request_data=data,
-            response_data=response_data,
-            status_code=status.HTTP_400_BAD_REQUEST
-        )
-        return Response(response_data, status=status.HTTP_400_BAD_REQUEST)
-
-    # Validate Payment Date
-    try:
-        paid_date = datetime.strptime(data['paidDate'], '%Y-%m-%d').date()
-    except ValueError:
-        response_data = {"status": "Fail", "message": "Payment Date format is not correct"}
-        ApiLog.objects.create(
-            service_name="payment_intimation_exposed",
-            endpoint=request.build_absolute_uri(),
-            request_data=data,
-            response_data=response_data,
-            status_code=status.HTTP_400_BAD_REQUEST
-        )
-        return Response(response_data, status=status.HTTP_400_BAD_REQUEST)
-
-    # Validate Payment Time
-    try:
-        paid_time = datetime.strptime(data['paidTime'], '%H:%M:%S').time()
-    except ValueError:
-        response_data = {"status": "Fail", "message": "Payment Time format is not correct"}
-        ApiLog.objects.create(
-            service_name="payment_intimation_exposed",
-            endpoint=request.build_absolute_uri(),
-            request_data=data,
-            response_data=response_data,
-            status_code=status.HTTP_400_BAD_REQUEST
-        )
-        return Response(response_data, status=status.HTTP_400_BAD_REQUEST)
-
-    # Validate Amount Paid
-    try:
-        amount_paid = float(data['amountPaid'])
-    except ValueError:
-        response_data = {"status": "Fail", "message": "Amount must be a valid number"}
-        ApiLog.objects.create(
-            service_name="payment_intimation_exposed",
-            endpoint=request.build_absolute_uri(),
-            request_data=data,
-            response_data=response_data,
-            status_code=status.HTTP_400_BAD_REQUEST
-        )
-        return Response(response_data, status=status.HTTP_400_BAD_REQUEST)
-
-    if amount_paid < 0:
-        response_data = {"status": "Fail", "message": "Amount cannot be in negative"}
-        ApiLog.objects.create(
-            service_name="payment_intimation_exposed",
-            endpoint=request.build_absolute_uri(),
-            request_data=data,
-            response_data=response_data,
-            status_code=status.HTTP_400_BAD_REQUEST
-        )
-        return Response(response_data, status=status.HTTP_400_BAD_REQUEST)
-
-    if not re.match(r'^\d+(\.\d{1,2})?$', data['amountPaid']):
-        response_data = {"status": "Fail", "message": "Only digits are allowed in amount"}
-        ApiLog.objects.create(
-            service_name="payment_intimation_exposed",
-            endpoint=request.build_absolute_uri(),
-            request_data=data,
-            response_data=response_data,
-            status_code=status.HTTP_400_BAD_REQUEST
-        )
-        return Response(response_data, status=status.HTTP_400_BAD_REQUEST)
+        response_data = {"status": "Fail", "message": "Bank code cannot contain special characters"}
+        return log_and_respond(request, response_data, status.HTTP_400_BAD_REQUEST)
 
     # Fetch the PSIDTracking record
-    psid_record = PSIDTracking.objects.filter(consumer_number=data['consumerNumber']).order_by('-created_at').first()
+    psid_record = PSIDTracking.objects.filter(
+        consumer_number=consumer_number,
+        dept_transaction_id=dept_transaction_id
+    ).order_by('-created_at').first()
+
     if not psid_record:
-        response_data = {"status": "Fail", "message": "No PSID record found for the given consumerNumber"}
-        ApiLog.objects.create(
-            service_name="payment_intimation_exposed",
-            endpoint=request.build_absolute_uri(),
-            request_data=data,
-            response_data=response_data,
-            status_code=status.HTTP_404_NOT_FOUND
-        )
-        return Response(response_data, status=status.HTTP_404_NOT_FOUND)
+        response_data = {"status": "Fail", "message": "No matching PSID record found for the provided consumer number and challan number"}
+        return log_and_respond(request, response_data, status.HTTP_400_BAD_REQUEST)
 
-    # Update PSIDTracking record with payment details
-    psid_status = data['psidStatus']
-    if psid_status == "PAID" and psid_record.payment_status != "PAID":
-        psid_record.payment_status = psid_status
-        psid_record.amount_paid = amount_paid
-        psid_record.paid_date = paid_date
-        psid_record.paid_time = paid_time
-        psid_record.bank_code = bank_code
-        psid_record.message = "Payment intimated successfully"
-        if psid_record.applicant:  # Ensure there is an associated applicant
-            applicant = psid_record.applicant
-            applicant.application_status = 'Submitted'
-            applicant.save()
-    else:
-        psid_record.message = "Payment not completed or already paid"
+    # Check if already paid
+    if psid_record.payment_status == "PAID":
+        response_data = {"status": "OK", "message": "PSID is already marked as PAID"}
+        return log_and_respond(request, response_data, status.HTTP_200_OK)
+
+    # Validate amount matches
+    if psid_record.amount_within_due_date != amount_paid:
+        response_data = {"status": "Fail", "message": "Amount paid does not match the expected amount"}
+        return log_and_respond(request, response_data, status.HTTP_400_BAD_REQUEST)
+
+    # Update PSIDTracking record
+    psid_record.payment_status = psid_status
+    psid_record.amount_paid = amount_paid
+    psid_record.paid_date = paid_date
+    psid_record.paid_time = paid_time
+    psid_record.bank_code = bank_code
+    psid_record.message = "Payment intimated successfully"
+
+    if psid_record.applicant:
+        applicant = psid_record.applicant
+        applicant.application_status = 'Submitted'
+        applicant.save()
+
     psid_record.save()
-    # Prepare the final response
-    response_data = {"status": "OK", "message": psid_record.message}
 
-    # Log the API call
+    # Successful response
+    response_data = {"status": "OK", "message": "Payment intimated successfully"}
+    return log_and_respond(request, response_data, status.HTTP_200_OK)
+
+
+def log_and_respond(request, response_data, status_code):
+    """
+    Helper function to log the API response and return a response.
+    """
     ApiLog.objects.create(
         service_name="payment_intimation_exposed",
         endpoint=request.build_absolute_uri(),
-        request_data=data,
+        request_data=request.data,
         response_data=response_data,
-        status_code=status.HTTP_200_OK
+        status_code=status_code
     )
-
-    return Response(response_data, status=status.HTTP_200_OK)
-
+    return Response(response_data, status=status_code)
 
 
 
@@ -411,6 +382,7 @@ class GeneratePsid(APIView):
 
     def get(self, request, *args, **kwargs):
         # 1. Retrieve applicant_id from request (e.g., ?applicant_id=123)
+        GRACE_PRIOD_DAYS = 15
         applicant_id = request.GET.get("applicant_id")
         user = request.user
         if not applicant_id:
@@ -433,22 +405,16 @@ class GeneratePsid(APIView):
         if existing_psid_record:
             if existing_psid_record.expiry_date >= timezone.localtime():
                 # Build an HTML snippet showing the existing PSID
-                html_content = f"""
-                <html>
-                  <head><title>Existing PSID Found</title></head>
-                  <body>
-                    <h1>Existing PSID Found</h1>
-                    <p><strong>PSID:</strong> {existing_psid_record.consumer_number}</p>
-                    <p><strong>Applicant:</strong> {applicant.first_name} {applicant.last_name or ''}</p>
-                    <p><strong>deptTransactionId:</strong> {existing_psid_record.dept_transaction_id}</p>
-                    <p><strong>Tracking Number:</strong> {applicant.tracking_number}</p>
-                    <p><strong>Mobile:</strong> {existing_psid_record.mobile_no}</p>
-                    <p><strong>CNIC:</strong> {existing_psid_record.cnic}</p>                                        <p><strong>Fee Amount:</strong> {existing_psid_record.amount_within_due_date}</p>
-                    <p><strong>Due Date:</strong> {existing_psid_record.due_date}</p>
-                    <p><strong>Expiry Date:</strong> {timezone.localtime(existing_psid_record.expiry_date)}</p>
-                  </body>
-                </html>
-                """
+
+                data_view = {
+                    'consumer_number': existing_psid_record.consumer_number,
+                    'applicant_name': f"""{applicant.first_name} {applicant.last_name or ''}""",
+                    'tracking_number': applicant.tracking_number,
+                    'amount_within_due_date':existing_psid_record.amount_within_due_date,
+                    'due_date':existing_psid_record.due_date,
+                    'expiry_date':timezone.localtime(existing_psid_record.expiry_date)
+                }
+                html_content = render_to_string('receipt_psid.html', data_view)
                 return HttpResponse(html_content, content_type="text/html")
 
         # == If we are here, either no record or it's expired, so generate a new one. ==
@@ -456,18 +422,6 @@ class GeneratePsid(APIView):
         # 3. Determine fee (same logic as before)
         business_profile = getattr(applicant, 'businessprofile', None)
         producer = Producer.objects.filter(applicant=applicant).first()
-
-        fee_structure = {
-            'Producer': {
-                'upto_5_machines': 50000,
-                'from_6_to_10_machines': 100000,
-                'more_than_10_machines': 300000,
-            },
-            'Distributor': {'Company': 200000, 'Individual': 100000},
-            'Consumer': {'Company': 200000, 'Individual': 100000},
-            'Collector': {'Company': 1000, 'Individual': 500},
-            'Recycler': {'Company': 50000, 'Individual': 25000},
-        }
 
         license_type = applicant.registration_for
         fee = None
@@ -498,11 +452,11 @@ class GeneratePsid(APIView):
             )
 
         # deptTransactionId from applicant.tracking_number + "-" + last_fee_obj.id
-        dept_transaction_id = f"{applicant.tracking_number}-{last_fee_obj.id}"
+        dept_transaction_id = f"{last_fee_obj.id}"
 
-        # 5. Calculate dueDate (today) and expiryDate (7 days from now)
-        due_date = timezone.localtime().date()
-        expiry_datetime = timezone.localtime() + timedelta(days=7)
+        # 5. Calculate dueDate (today) and expiryDate (15 days from now)
+        due_date = (timezone.localtime() + timedelta(days=GRACE_PRIOD_DAYS)).date()
+        expiry_datetime = (timezone.localtime() + timedelta(days=GRACE_PRIOD_DAYS)).replace(hour=23, minute=59, second=59, microsecond=0)
         expiry_str = expiry_datetime.strftime("%Y-%m-%d %H:%M:%S")
 
         fee_amount = last_fee_obj.fee_amount
@@ -610,24 +564,15 @@ class GeneratePsid(APIView):
                 applicant.application_status = 'Fee Challan'
                 applicant.save()
 
-                # Return an HTML snippet with newly generated PSID, tracking_number, etc.
-                html_content = f"""
-                <html>
-                  <head><title>PSID Created</title></head>
-                  <body>
-                    <h1>PSID Created Successfully</h1>
-                    <p><strong>PSID:</strong> {consumer_number}</p>
-                    <p><strong>Applicant:</strong> {applicant.first_name} {applicant.last_name or ''}</p>
-                    <p><strong>deptTransactionId:</strong> {dept_transaction_id}</p>
-                    <p><strong>Tracking Number:</strong> {applicant.tracking_number}</p>
-                    <p><strong>Mobile:</strong> {full_mobile}</p>
-                    <p><strong>CNIC:</strong> {cnic_value}</p>
-                    <p><strong>Fee Amount:</strong> {fee_amount}</p>
-                    <p><strong>Due Date:</strong> {psid_record.due_date}</p>
-                    <p><strong>Expiry Date:</strong> {timezone.localtime(psid_record.expiry_date)}</p>
-                  </body>
-                </html>
-                """
+                data_view = {
+                    'consumer_number': consumer_number,
+                    'applicant_name': f"""{applicant.first_name} {applicant.last_name or ''}""",
+                    'tracking_number': applicant.tracking_number,
+                    'amount_within_due_date':fee_amount,
+                    'due_date':psid_record.due_date,
+                    'expiry_date':timezone.localtime(psid_record.expiry_date)
+                }
+                html_content = render_to_string('receipt_psid.html', data_view)
                 return HttpResponse(html_content, content_type="text/html")
 
             else:

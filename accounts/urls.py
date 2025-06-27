@@ -2,7 +2,8 @@
 from django.urls import path
 from rest_framework.routers import DefaultRouter
 
-from .views import RegisterView, LoginView, ProfileView
+from .views import RegisterView, LoginView, ProfileView, ResetPasswordView, FindUserView, \
+    ResetForgotPassword, ListInspectorsView, CreateInspectorUserView, generate_captcha
 
 router = DefaultRouter()
 
@@ -14,4 +15,11 @@ urlpatterns = [
     path('register/', RegisterView.as_view(), name='register'),
     path('login/', LoginView.as_view(), name='login'),
     path('profile/', ProfileView.as_view(), name='profile'),
+    path('reset-password2/', ResetPasswordView.as_view(), name='reset-password'),
+    path('find-user/', FindUserView.as_view(), name='find-user'),
+    path('reset-forgot-password/', ResetForgotPassword.as_view(), name='reset-forgot-password'),
+    path('list-inspectors/', ListInspectorsView.as_view(), name='list-inspectors'),
+    path('create-update-inpsector-user/', CreateInspectorUserView.as_view(), name='list-inspectors'),
+    path('generate-captcha/', generate_captcha, name='generate-captcha'),
+
 ]
